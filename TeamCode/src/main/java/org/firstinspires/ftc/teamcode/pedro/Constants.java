@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.pedro;
 
 import com.pedropathing.follower.Follower;
+import com.pedropathing.revhub.drivetrains.MecanumConfig;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 public class Constants {
@@ -8,4 +10,17 @@ public class Constants {
         // return new Follower(Drivetrain, Localizer, Foresight);
         return null;
     }
+    public static MecanumConfig driveConfig = new MecanumConfig(
+            c -> {
+                c.frontLeftName.set("LF");
+                c.backLeftName.set("LB");
+                c.frontRightName.set("RF");
+                c.backRightName.set("RB");
+
+                c.frontLeftDirection.set(DcMotor.Direction.REVERSE);
+                c.backLeftDirection.set(DcMotor.Direction.REVERSE);
+                c.frontRightDirection.set(DcMotor.Direction.FORWARD);
+                c.backRightDirection.set(DcMotor.Direction.FORWARD);
+            }
+    );
 }
