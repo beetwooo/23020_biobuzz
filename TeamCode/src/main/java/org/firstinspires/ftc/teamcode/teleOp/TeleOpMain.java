@@ -28,13 +28,16 @@ public class TeleOpMain extends OpMode {
     @Override
     public void loop() {
 
+        //stick
         double ly = gamepad1.left_stick_y;
         double lx = gamepad1.left_stick_x;
         double rx = gamepad1.right_stick_x;
+        double ry = gamepad1.right_stick_y;
 
         boolean startWasPressed = gamepad1.startWasPressed;
         boolean  bWasPressed = gamepad1.bWasPressed;
 
+        //mecanum
         mecanumAim.fieldCentric(ly, lx, rx);
         mecanum.resetPose(startWasPressed, bWasPressed);
 
