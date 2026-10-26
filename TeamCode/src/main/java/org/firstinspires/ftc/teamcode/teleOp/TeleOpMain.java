@@ -36,9 +36,7 @@ public class TeleOpMain extends OpMode {
         boolean  bWasPressed = gamepad1.bWasPressed;
 
         mecanumAim.fieldCentric(ly, lx, rx);
-        mecanum.resetPose(startWasPressed, bWasPressed)l
-
-        Pose robotPose = follower.pose();
+        mecanum.resetPose(startWasPressed, bWasPressed);
 
         telemetry.addData("Robot X", robotPose.x());
         telemetry.addData("Robot Y", robotPose.y());
