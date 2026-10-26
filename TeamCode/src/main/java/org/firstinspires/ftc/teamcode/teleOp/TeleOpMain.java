@@ -28,23 +28,16 @@ public class TeleOpMain extends OpMode {
     @Override
     public void loop() {
 
-        double rotationalPower;
+        double ly = gamepad1.left_stick_y;
+        double lx = gamepad1.left_stick_x;
+        double rx = gamepad1.right_stick_x;
 
-        if (gamepad1.right_trigger > 0.5) {
-            rotationalPower = mecanumAim.getRotationPower();
-        } else {
-            rotationalPower = gamepad1.right_stick_x;
-        }
+        boolean startWasPressed = gamepad1.startWasPressed;
+        boolean  bWasPressed = gamepad1.bWasPressed;
 
-        DrivePowers powers = ManualDrive.fieldCentric(
-                -gamepad1.left_stick_y,
-                gamepad1.left_stick_x,
-                rotationalPower,
-                follower.pose().heading()
-        );
+        mecanumAim.fieldCentric(ly, lx, rx);
+        mecanum.resetPose(startWasPressed, bWasPressed)l
 
-        ManualDrive.driveOrHold(follower, powers);
-        follower.update();
         Pose robotPose = follower.pose();
 
         telemetry.addData("Robot X", robotPose.x());
