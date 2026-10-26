@@ -18,6 +18,7 @@ public class TeleOpMain extends OpMode {
 
     @Override
     public void init(){
+        follower = Constants.create(hardwareMap);
     }
 
     @Override
