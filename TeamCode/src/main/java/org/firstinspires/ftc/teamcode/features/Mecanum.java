@@ -20,8 +20,10 @@ public class Mecanum {
         );
         ManualDrive.driveOrHold(follower, powers);
         follower.update();
-    }
 
+        Pose robotPose = follower.pose();
+    }
+    
     public void resetPose(boolean startWasPressed, boolean bWasPressed){
         if (startWasPressed || bWasPressed) {
             Pose cornerPose = new Pose(0, 0, Math.toDegrees(0));
