@@ -43,7 +43,7 @@ public class TeleOpMain extends OpMode {
                 follower.pose().heading()
         );
 
-        follower.manual(powers);
+        ManualDrive.driveOrHold(follower, powers);
         follower.update();
         Pose robotPose = follower.pose();
 
