@@ -2,18 +2,21 @@ package org.firstinspires.ftc.teamcode.teleOp;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
+
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.features.MecanumAim;
 
-import com.pedropathing.drivetrain.DrivePowers;
-import com.pedropathing.follower.ManualDrive;
+import org.firstinspires.ftc.teamcode.features.Mecanum;
+import org.firstinspires.ftc.teamcode.features.Position;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 
-@TeleOp
+@TeleOp(name = "TELEOP_TEST", group = "TeleOp")
 public class TeleOpMain extends OpMode {
-    private Follower follower;
-    MecanumAim mecanumAim = new MecanumAim();
+    public Follower follower;
+    Position position = new Position();
+    Pose robotPose = follower.pose();
+    Mecanum mecanum = new Mecanum();
 
 
     @Override
@@ -28,17 +31,20 @@ public class TeleOpMain extends OpMode {
     @Override
     public void loop() {
 
+        position.update();
+        position.robotPose();
+
         //stick
         double ly = gamepad1.left_stick_y;
         double lx = gamepad1.left_stick_x;
         double rx = gamepad1.right_stick_x;
         double ry = gamepad1.right_stick_y;
 
-        boolean startWasPressed = gamepad1.startWasPressed;
-        boolean  bWasPressed = gamepad1.bWasPressed;
+        boolean startWasPressed = gamepad1.startWasPressed();
+        boolean bWasPressed = gamepad1.bWasPressed();
 
-        //mecanum
-        mecanumAim.fieldCentric(ly, lx, rx);
+
+        mecanum.fieldCentric(ly, lx, rx);
         mecanum.resetPose(startWasPressed, bWasPressed);
 
         telemetry.addData("Robot X", robotPose.x());
