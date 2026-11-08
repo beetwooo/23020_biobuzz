@@ -10,13 +10,14 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 
 import org.firstinspires.ftc.teamcode.features.Mecanum;
+import org.firstinspires.ftc.teamcode.features.intake.Lip;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 @TeleOp(name = "TELEOP_TEST_2", group = "TeleOp")
 public class test extends OpMode {
     private Follower follower;
     Mecanum mecanum = new Mecanum();
-
+    Lip lip = new Lip();
 
     @Override
     public void init(){

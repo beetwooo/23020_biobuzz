@@ -14,6 +14,10 @@ public class Lip {
         RightLip.setDirection(Servo.Direction.REVERSE);
     }
 
+    public void Switch(){
+        
+    }
+
 
 
     /*
