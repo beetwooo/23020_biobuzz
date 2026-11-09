@@ -3,20 +3,37 @@ package org.firstinspires.ftc.teamcode.features.intake;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
+import org.firstinspires.ftc.teamcode.teleOp.TeleOpMain;
+
 public class Lip {
 
     private Servo LeftLip, RightLip;
+    TeleOpMain teleOpMain = new TeleOpMain();
+
+    public enum state{
+        UP,
+        DOWN
+    }
     public void init(HardwareMap hardwareMap){
         LeftLip = hardwareMap.get(Servo.class, "LL");
         RightLip = hardwareMap.get(Servo.class, "LR");
 
         LeftLip.setDirection(Servo.Direction.FORWARD);
         RightLip.setDirection(Servo.Direction.REVERSE);
+
+        LeftLip.setPosition();
+        RightLip.setPosition();
     }
 
-    public void Switch(){
-        
+    public void action(boolean bWasPressed){
+
+
+        if(teleOpMain.gamepad1.y){
+            LeftLip.setPosition(bWasPressed);
+            RightLip.setPosition(-bWasPressed);
+        }
     }
+
 
 
 
