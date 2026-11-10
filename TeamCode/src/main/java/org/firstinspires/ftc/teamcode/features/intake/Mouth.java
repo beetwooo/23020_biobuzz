@@ -60,7 +60,7 @@ public class Mouth {
     private void action(double frontPower, double backPower, double lidPosition) {
         LeftMouthMotor.setPower(frontPower);
         RightMouthMotor.setPower(backPower);
-        ArtifactLid.setPosition(lidPosition);
+        MouthLid.setPosition(lidPosition);
     }
 
 }

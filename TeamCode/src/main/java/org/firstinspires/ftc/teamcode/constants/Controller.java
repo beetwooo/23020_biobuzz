@@ -9,6 +9,5 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 public class Controller {
 
     public void controls(){
-        public void
     }
 }

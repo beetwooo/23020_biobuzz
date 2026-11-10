@@ -71,9 +71,6 @@ public class TeleOpMain extends OpMode {
         boolean yWasPressed = gamepad1.yWasPressed();
 
 
-
-
-
         mecanum.fieldCentric(ly, lx, rx);
 
         mecanum.resetPose(startWasPressed, bWasPressed);
