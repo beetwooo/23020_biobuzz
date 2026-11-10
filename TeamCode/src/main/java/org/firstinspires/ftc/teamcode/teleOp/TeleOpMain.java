@@ -5,25 +5,45 @@ import com.pedropathing.math.Pose;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 
 
 import org.firstinspires.ftc.teamcode.features.Mecanum;
 import org.firstinspires.ftc.teamcode.features.Position;
 import org.firstinspires.ftc.teamcode.features.intake.Lip;
+import org.firstinspires.ftc.teamcode.features.intake.Mouth;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 @TeleOp(name = "TELEOP_TEST", group = "TeleOp")
 public class TeleOpMain extends OpMode {
     public Follower follower;
-    Position position = new Position();
-    Pose robotPose = follower.pose();
-    Mecanum mecanum = new Mecanum();
-    Lip lip = new Lip();
+    private Position position = new Position();
+    private Pose robotPose = follower.pose();
+    private Mouth mouth = new Mouth();
+    private Lip lip = new Lip();
+    private Mecanum mecanum = new Mecanum();
 
 
     @Override
     public void init(){
         follower = Constants.create(hardwareMap);
+        mouth.init(hardwareMap);
+        lip.init(hardwareMap);
+
+        if(gamepad1.left_bumper){
+            mouth.setState(Mouth.State.INTAKING);
+        }else if(gamepad1.right_bumper){
+            mouth.setState(Mouth.State.OUTTAKING);
+        }else{
+            mouth.setState(Mouth.State.IDLE);
+        }
+
+        if(gamepad1.left_bumper){
+            lip.setState(Lip.State.DOWN);
+        }else {
+            lip.setState(Lip.State.UP);
+        }
+
     }
 
     @Override
@@ -50,7 +70,6 @@ public class TeleOpMain extends OpMode {
         boolean xWasPressed = gamepad1.xWasPressed();
         boolean yWasPressed = gamepad1.yWasPressed();
 
-        boolean
 
 
 
@@ -58,7 +77,6 @@ public class TeleOpMain extends OpMode {
         mecanum.fieldCentric(ly, lx, rx);
 
         mecanum.resetPose(startWasPressed, bWasPressed);
-        lip.action(bWasPressed);
 
         telemetry.addData("Robot X", robotPose.x());
         telemetry.addData("Robot Y", robotPose.y());

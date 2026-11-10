@@ -1,37 +1,51 @@
 package org.firstinspires.ftc.teamcode.features.intake;
 
+
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.teamcode.teleOp.TeleOpMain;
-
 public class Lip {
 
-    private Servo LeftLip, RightLip;
-    TeleOpMain teleOpMain = new TeleOpMain();
+    private Servo LeftLipServo, RightLipServo;
+    private State state = State.DOWN;
 
-    public enum state{
+    public enum State {
         UP,
         DOWN
     }
     public void init(HardwareMap hardwareMap){
-        LeftLip = hardwareMap.get(Servo.class, "LL");
-        RightLip = hardwareMap.get(Servo.class, "LR");
+        LeftLipServo = hardwareMap.get(Servo.class, "LL");
+        RightLipServo = hardwareMap.get(Servo.class, "LR");
 
-        LeftLip.setDirection(Servo.Direction.FORWARD);
-        RightLip.setDirection(Servo.Direction.REVERSE);
+        LeftLipServo.setDirection(Servo.Direction.FORWARD);
+        RightLipServo.setDirection(Servo.Direction.REVERSE);
 
-        LeftLip.setPosition();
-        RightLip.setPosition();
+        LeftLipServo.setPosition(-1);
+        RightLipServo.setPosition(1);
     }
 
-    public void action(boolean bWasPressed){
+    public void setState(State newState) {
+        state = newState;
+    }
 
+    public State getState() {
+        return state;
+    }
 
-        if(teleOpMain.gamepad1.y){
-            LeftLip.setPosition(bWasPressed);
-            RightLip.setPosition(-bWasPressed);
+    public void update() {
+        switch (state) {
+            case UP:
+                action(1, -1);
+                break;
+            case DOWN:
+                action(-1, 1);
+                break;
         }
+    }
+
+    private void action(double leftPosition, double rightPosition) {
+        LeftLipServo.setPosition(leftPosition);
+        RightLipServo.setPosition(rightPosition);
     }
 
 
