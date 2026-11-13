@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 public class Lip {
 
-    private Servo LeftLipServo, RightLipServo;
+    private Servo LeftServo, RightServo;
     private State state = State.DOWN;
 
     public enum State {
@@ -14,14 +14,14 @@ public class Lip {
         DOWN
     }
     public void init(HardwareMap hardwareMap){
-        LeftLipServo = hardwareMap.get(Servo.class, "LL");
-        RightLipServo = hardwareMap.get(Servo.class, "LR");
+        LeftServo = hardwareMap.get(Servo.class, "LL");
+        RightServo = hardwareMap.get(Servo.class, "LR");
 
-        LeftLipServo.setDirection(Servo.Direction.FORWARD);
-        RightLipServo.setDirection(Servo.Direction.REVERSE);
+        LeftServo.setDirection(Servo.Direction.FORWARD);
+        RightServo.setDirection(Servo.Direction.REVERSE);
 
-        LeftLipServo.setPosition(-1);
-        RightLipServo.setPosition(1);
+        LeftServo.setPosition(-1);
+        RightServo.setPosition(1);
     }
 
     public void setState(State newState) {
@@ -44,8 +44,8 @@ public class Lip {
     }
 
     private void action(double leftPosition, double rightPosition) {
-        LeftLipServo.setPosition(leftPosition);
-        RightLipServo.setPosition(rightPosition);
+        LeftServo.setPosition(leftPosition);
+        RightServo.setPosition(rightPosition);
     }
 
 

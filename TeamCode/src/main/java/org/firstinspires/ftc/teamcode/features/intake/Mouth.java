@@ -13,24 +13,25 @@ public class Mouth {
         OUTTAKING
     }
 
-    private DcMotor LeftMouthMotor, RightMouthMotor;
+    private DcMotor LeftMotor, RightMotor;
     private Servo MouthLid;
     private State state = State.IDLE;
 
     public void init(HardwareMap hwMap) {
 
-        LeftMouthMotor = hwMap.get(DcMotor.class, "FE");
-        RightMouthMotor = hwMap.get(DcMotor.class, "BE");
-        MouthLid = hwMap.get(Servo.class, "AL");
+        
+        LeftMotor = hwMap.get(DcMotor.class, "LM");
+        RightMotor = hwMap.get(DcMotor.class, "RM");
+        MouthLid = hwMap.get(Servo.class, "ML");
 
-        LeftMouthMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        RightMouthMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        LeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        RightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        LeftMouthMotor.setPower(0);
-        RightMouthMotor.setPower(0);
+        LeftMotor.setPower(0);
+        RightMotor.setPower(0);
         MouthLid.setPosition(0.5);
 
-        RightMouthMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        RightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
     }
 
@@ -58,8 +59,8 @@ public class Mouth {
     }
 
     private void action(double frontPower, double backPower, double lidPosition) {
-        LeftMouthMotor.setPower(frontPower);
-        RightMouthMotor.setPower(backPower);
+        LeftMotor.setPower(frontPower);
+        RightMotor.setPower(backPower);
         MouthLid.setPosition(lidPosition);
     }
 
