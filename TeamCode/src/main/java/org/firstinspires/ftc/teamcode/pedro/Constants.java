@@ -47,7 +47,9 @@ public class Constants {
            c.yPodOffset.set(-5.27652770515502);
            c.xPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
            c.yPodDirection.set(GoBildaPinpointDriver.EncoderDirection.FORWARD);
-           c.globalDistanceUnit.set(DistanceUnit.CM);
+           // Pedro 3 works in INCHES (144 x 144 field). CM made follower.pose() disagree with Field.java.
+           // NOTE: foresightConfig below was tuned while this was CM -> re-run the Foresight tuner.
+           c.globalDistanceUnit.set(DistanceUnit.INCH);
            c.offsetUnits.set(DistanceUnit.INCH);
 
            });

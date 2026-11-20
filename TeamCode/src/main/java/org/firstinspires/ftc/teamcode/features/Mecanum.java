@@ -1,36 +1,48 @@
 
 package org.firstinspires.ftc.teamcode.features;
 
+import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
-import com.pedropathing.drivetrain.DrivePowers;
 
 public class Mecanum {
 
-    private Follower follower;
+    private final Follower follower;
 
     public Mecanum(Follower follower) {
         this.follower = follower;
     }
 
-    public void fieldCentric(double ly, double lx, double rx) {
+    /**
+     * Field-centric drive in Pedro 3's convention:
+     *   forward + = robot forward, strafe + = robot left, turn + = counter-clockwise.
+     * Convert the sticks before calling (forward = -left_stick_y,
+     * strafe = -left_stick_x, turn = -right_stick_x).
+     *
+     * driverHeadingRadians = field direction the driver faces, so pushing the
+     * stick forward always moves the robot away from the driver.
+     *
+     * follower.update() must still be called once every loop.
+     */
+    public void fieldCentric(double forward, double strafe, double turn, double driverHeadingRadians) {
 
         DrivePowers powers = ManualDrive.fieldCentric(
-                -ly,
-                -lx,
-                -rx,
-                follower.pose().heading()
+                forward,
+                strafe,
+                turn,
+                follower.pose().heading(),
+                -driverHeadingRadians
         );
 
         ManualDrive.driveOrHold(follower, powers);
     }
 
-    public void resetPose(boolean startWasPressed, boolean bWasPressed) {
+    /** Resets the pose. Only press when the robot is physically at that pose. */
+    public void resetPose(boolean resetPressed, Pose pose) {
 
-        if (startWasPressed || bWasPressed) {
-            Pose cornerPose = new Pose(0, 0, 0);
-            follower.setPose(cornerPose);
+        if (resetPressed) {
+            follower.setPose(pose);
         }
     }
 }
