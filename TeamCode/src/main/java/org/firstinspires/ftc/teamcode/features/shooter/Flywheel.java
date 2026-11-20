@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
-public class ShooterForTrajectory {
+public class Flywheel {
 
     public enum State {
         IDLE,
@@ -35,7 +35,7 @@ public class ShooterForTrajectory {
 
         flywheel = hardwareMap.get(
                 DcMotorEx.class,
-                org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_NAME
+                org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_NAME
         );
 
         flywheel.setDirection(
@@ -63,10 +63,10 @@ public class ShooterForTrajectory {
 
         PIDFCoefficients coefficients =
                 new PIDFCoefficients(
-                        org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_P,
-                        org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_I,
-                        org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_D,
-                        org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_F
+                        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_P,
+                        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_I,
+                        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_D,
+                        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_F
                 );
 
         flywheel.setPIDFCoefficients(
@@ -82,9 +82,9 @@ public class ShooterForTrajectory {
     public void setTargetVelocity(double velocity) {
 
         double maxVelocity =
-                org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_MAX_RPM
+                org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_MAX_RPM
                         / 60.0
-                        * org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_TPR;
+                        * org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_TPR;
 
         double newTarget = Range.clip(
                 velocity,
@@ -108,14 +108,14 @@ public class ShooterForTrajectory {
     // AIM USING TRAJECTORY CALCULATOR
     // =====================================
 
-    public Trajectory aimAt(
+    public ShotSolution aimAt(
             double robotX,
             double robotY,
             double goalX,
             double goalY) {
 
-        Trajectory trajectory =
-                TrajectoryCalculator.calculate(
+        ShotSolution trajectory =
+                ShotCalculator.calculate(
                         robotX,
                         robotY,
                         goalX,
@@ -164,7 +164,7 @@ public class ShooterForTrajectory {
         );
 
         boolean withinTolerance =
-                error <= org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_READY_TOLERANCE;
+                error <= org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_READY_TOLERANCE;
 
         if (withinTolerance) {
 
@@ -176,7 +176,7 @@ public class ShooterForTrajectory {
             }
 
             if (readyTimer.seconds()
-                    >= org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_READY_TIME) {
+                    >= org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_READY_TIME) {
 
                 state = State.READY;
 

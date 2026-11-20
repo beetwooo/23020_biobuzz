@@ -7,12 +7,14 @@ public class Field {
         BLUE
     }
 
-    //pedro field 기준으로
+    //pedro field 기준으로 (inches, origin = corner, field is 144 x 144)
 
+    // Biobuzz: 4 goals, 2 per alliance, in the centre structure.
+    // TOP = upper half of the field (y > 72), BOTTOM = lower half (y < 72).
     public static double RED_GOAL_X_TOP = 60;
-    public static double RED_GOAL_Y_TOP = 60;
+    public static double RED_GOAL_Y_TOP = 84;
     public static double RED_GOAL_X_BOTTOM = 60;
-    public static double RED_GOAL_Y_BOTTOM = 84;
+    public static double RED_GOAL_Y_BOTTOM = 60;
 
     //===========================================//
     public static double BLUE_GOAL_X_TOP = 84;
@@ -22,6 +24,9 @@ public class Field {
 
     //===============================================\\
 
+    // TeleOp starting pose (there is no autonomous). Place the robot here before INIT.
+    // MEASURE these: (0, 0) means the robot is in the bottom-left corner.
+    // If the pose is wrong, auto-aim aims at the wrong place.
     public static double RED_START_X = 0;
     public static double RED_START_Y = 0;
     public static double RED_START_HEADING_DEGREES = 90;

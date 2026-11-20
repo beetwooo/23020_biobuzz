@@ -4,7 +4,7 @@ package org.firstinspires.ftc.teamcode.features.shooter;
 import com.bylazar.configurables.annotations.Configurable;
 
 @Configurable
-public class TrajectoryCalculator {
+public class ShotCalculator {
 
     // =====================================
     // SHOOTING CALIBRATION POINT A
@@ -46,7 +46,7 @@ public class TrajectoryCalculator {
     // CALCULATE TRAJECTORY
     // =====================================
 
-    public static Trajectory calculate(
+    public static ShotSolution calculate(
             double robotX,
             double robotY,
             double goalX,
@@ -67,7 +67,7 @@ public class TrajectoryCalculator {
                 || !Double.isFinite(distance)
                 || distance < 0.001) {
 
-            return new Trajectory(distance, 0, false);
+            return new ShotSolution(distance, 0, false);
         }
 
         // =================================
@@ -93,16 +93,16 @@ public class TrajectoryCalculator {
         // =================================
 
         double maxVelocity =
-                org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_MAX_RPM
+                org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_MAX_RPM
                         / 60.0
-                        * org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_TPR;
+                        * org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_TPR;
 
         targetVelocity = Math.max(
                 0,
                 Math.min(targetVelocity, maxVelocity)
         );
 
-        return new Trajectory(
+        return new ShotSolution(
                 distance,
                 targetVelocity,
                 true

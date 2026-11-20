@@ -18,7 +18,7 @@ import com.qualcomm.robotcore.util.Range;
 
 @Configurable
 @TeleOp(name = "Shooting PID", group = "Calibrations")
-public class Shooting extends OpMode {
+public class FlywheelPIDTuner extends OpMode {
 
     private final TelemetryManager panelsTelemetry =
             PanelsTelemetry.INSTANCE.getTelemetry();
@@ -32,16 +32,16 @@ public class Shooting extends OpMode {
     public static boolean flywheelEnabled = false;
 
     public static double p =
-            org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_P;
+            org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_P;
 
     public static double i =
-            org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_I;
+            org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_I;
 
     public static double d =
-            org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_D;
+            org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_D;
 
     public static double f =
-            org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_F;
+            org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_F;
 
     // Encoder ticks per second
     public static double tar_vel = 0;
@@ -78,7 +78,7 @@ public class Shooting extends OpMode {
 
         flywheel = hardwareMap.get(
                 DcMotorEx.class,
-                org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_NAME
+                org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_NAME
         );
 
         flywheel.setDirection(
@@ -125,10 +125,10 @@ public class Shooting extends OpMode {
         lastF = f;
 
         // Copy calibrated values into constants.
-        org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_P = p;
-        org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_I = i;
-        org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_D = d;
-        org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_F = f;
+        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_P = p;
+        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_I = i;
+        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_D = d;
+        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_F = f;
     }
 
     // =====================================
@@ -177,9 +177,9 @@ public class Shooting extends OpMode {
         // =================================
 
         double maxVelocity =
-                org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_MAX_RPM
+                org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_MAX_RPM
                         / 60.0
-                        * org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_TPR;
+                        * org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_TPR;
 
         tar_vel = Range.clip(tar_vel, 0, maxVelocity);
 
@@ -212,7 +212,7 @@ public class Shooting extends OpMode {
         if (flywheelEnabled
                 && commandedVelocity > 0
                 && Math.abs(error)
-                <= org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_READY_TOLERANCE) {
+                <= org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_READY_TOLERANCE) {
 
             if (!inTolerance) {
 
@@ -222,7 +222,7 @@ public class Shooting extends OpMode {
             }
 
             ready = readyTimer.seconds()
-                    >= org.firstinspires.ftc.teamcode.constants.Shooter.FLYWHEEL_READY_TIME;
+                    >= org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_READY_TIME;
 
         } else {
 

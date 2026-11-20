@@ -38,6 +38,24 @@ public class Mecanum {
         ManualDrive.driveOrHold(follower, powers);
     }
 
+    /**
+     * Same as fieldCentric, but always drives with these powers and never switches
+     * to Pedro's HOLD. Use while auto-aiming: driveOrHold locks the robot in place
+     * once the turn power drops below 0.1, which stopped the aim a few degrees short.
+     */
+    public void fieldCentricNoHold(double forward, double strafe, double turn, double driverHeadingRadians) {
+
+        DrivePowers powers = ManualDrive.fieldCentric(
+                forward,
+                strafe,
+                turn,
+                follower.pose().heading(),
+                -driverHeadingRadians
+        );
+
+        follower.manual(powers);
+    }
+
     /** Resets the pose. Only press when the robot is physically at that pose. */
     public void resetPose(boolean resetPressed, Pose pose) {
 

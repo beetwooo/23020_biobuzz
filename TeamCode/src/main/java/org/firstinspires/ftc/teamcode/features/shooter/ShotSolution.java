@@ -1,13 +1,13 @@
 
 package org.firstinspires.ftc.teamcode.features.shooter;
 
-public class Trajectory {
+public class ShotSolution {
 
     private final double distance;
     private final double targetVelocity;
     private final boolean valid;
 
-    public Trajectory(
+    public ShotSolution(
             double distance,
             double targetVelocity,
             boolean valid) {

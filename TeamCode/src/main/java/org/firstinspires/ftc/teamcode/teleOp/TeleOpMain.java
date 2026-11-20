@@ -9,21 +9,19 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.constants.Field;
 import org.firstinspires.ftc.teamcode.features.Mecanum;
-import org.firstinspires.ftc.teamcode.features.intake.Mouth;
-import org.firstinspires.ftc.teamcode.features.shooter.ShooterForTrajectory;
-import org.firstinspires.ftc.teamcode.features.shooter.Targeting;
-import org.firstinspires.ftc.teamcode.features.shooter.Trajectory;
-import org.firstinspires.ftc.teamcode.features.shooter.test2;
+import org.firstinspires.ftc.teamcode.features.intake.Intake;
+import org.firstinspires.ftc.teamcode.features.shooter.Flywheel;
+import org.firstinspires.ftc.teamcode.features.shooter.ShotSolution;
+import org.firstinspires.ftc.teamcode.features.shooter.ChassisAim;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 public abstract class TeleOpMain extends OpMode {
 
     private Follower follower;
 
-    private final Mouth mouth = new Mouth();
-    private final Targeting turret = new Targeting();
+    private final Intake intake = new Intake();
 
-    private final test2 test2 = new test2();
+    private final ChassisAim chassisAim = new ChassisAim();
 
     private Mecanum mecanum;
 
@@ -31,17 +29,18 @@ public abstract class TeleOpMain extends OpMode {
 
     private double goalX;
     private double goalY;
+    private boolean aimingAtTopGoal;
     private double driverHeadingDegrees;
     private Pose startingPose;
     private Pose robotPose;
 
-    private final PoseFactory p = PoseFactory.degrees();
+    private final PoseFactory poseFactory = PoseFactory.degrees();
 
     protected abstract Field.Goal getGoal();
 
-    private final ShooterForTrajectory shooterForTrajectory = new ShooterForTrajectory();
+    private final Flywheel flywheel = new Flywheel();
 
-    private Trajectory trajectory;
+    private ShotSolution shot;
 
     @Override
     public void init() {
@@ -57,38 +56,50 @@ public abstract class TeleOpMain extends OpMode {
         follower = Constants.create(hardwareMap);
 
         if (activeGoal == Field.Goal.RED) {
-            startingPose = p.of(
+            startingPose = poseFactory.of(
                     Field.RED_START_X,
                     Field.RED_START_Y,
                     Field.RED_START_HEADING_DEGREES
             );
         } else {
-            startingPose = p.of(
+            startingPose = poseFactory.of(
                     Field.BLUE_START_X,
                     Field.BLUE_START_Y,
                     Field.BLUE_START_HEADING_DEGREES
             );
         }
 
+        selectGoal(startingPose);
+
+        // No autonomous: TeleOp always starts from the Field.java starting pose,
+        // so place the robot exactly there before pressing INIT.
         follower.setPose(startingPose);
         robotPose = follower.pose();
 
-        boolean topGoal =
-                startingPose.x() > 72
-                        || startingPose.y() > 72;
+        intake.init(hardwareMap);
+        mecanum = new Mecanum(follower);
+        flywheel.init(hardwareMap);
+    }
 
-        if (activeGoal == Field.Goal.RED) {
-            goalX = topGoal ? Field.RED_GOAL_X_TOP : Field.RED_GOAL_X_BOTTOM;
-            goalY = topGoal ? Field.RED_GOAL_Y_TOP : Field.RED_GOAL_Y_BOTTOM;
-        } else {
-            goalX = topGoal ? Field.BLUE_GOAL_X_TOP : Field.BLUE_GOAL_X_BOTTOM;
-            goalY = topGoal ? Field.BLUE_GOAL_Y_TOP : Field.BLUE_GOAL_Y_BOTTOM;
+    /**
+     * Biobuzz: each alliance has 2 goals.
+     * Robot in the upper half (y > 72) aims at the TOP goal,
+     * otherwise (y <= 72) it aims at the BOTTOM goal.
+     */
+    private void selectGoal(Pose pose) {
+        if (pose == null) {
+            return;
         }
 
-        mouth.init(hardwareMap);
-        turret.init(hardwareMap);
-        mecanum = new Mecanum(follower);
-        shooterForTrajectory.init(hardwareMap);
+        aimingAtTopGoal = pose.y() > 72;
+
+        if (activeGoal == Field.Goal.RED) {
+            goalX = aimingAtTopGoal ? Field.RED_GOAL_X_TOP : Field.RED_GOAL_X_BOTTOM;
+            goalY = aimingAtTopGoal ? Field.RED_GOAL_Y_TOP : Field.RED_GOAL_Y_BOTTOM;
+        } else {
+            goalX = aimingAtTopGoal ? Field.BLUE_GOAL_X_TOP : Field.BLUE_GOAL_X_BOTTOM;
+            goalY = aimingAtTopGoal ? Field.BLUE_GOAL_Y_TOP : Field.BLUE_GOAL_Y_BOTTOM;
+        }
     }
 
     @Override
@@ -103,54 +114,75 @@ public abstract class TeleOpMain extends OpMode {
         follower.update();
         robotPose = follower.pose();
 
+        // Re-pick the goal every loop from where the robot is now.
+        selectGoal(robotPose);
+
         // Gamepad -> Pedro convention (forward +, left +, counter-clockwise +).
         double forward = -gamepad1.left_stick_y;
         double strafe = -gamepad1.left_stick_x;
         double turn = -gamepad1.right_stick_x;
 
-        // Auto aim (hold RIGHT BUMPER). test2 already returns a Pedro-convention
-        // turn (+ = counter-clockwise), so it is NOT negated like the stick.
-        if (gamepad1.right_bumper) {
-            double aimTurn = test2.calculate(robotPose, goalX, goalY, 0.0);
-
-            // Driver can still override with the right stick.
-            if (Math.abs(gamepad1.right_stick_x) <= 0.12) {
-                turn = aimTurn;
-            }
-        }
-
-        mecanum.fieldCentric(
-                forward,
-                strafe,
-                turn,
-                Math.toRadians(driverHeadingDegrees)
+        // Aim is calculated every loop so we always know whether the robot is aimed.
+        // ChassisAim returns a Pedro-convention turn (+ = counter-clockwise),
+        // so it is NOT negated like the stick.
+        double aimTurn = chassisAim.calculate(
+                robotPose,
+                follower.velocity().omega,
+                goalX,
+                goalY,
+                0.0
         );
+
+        // Auto aim (hold RIGHT BUMPER). Driver can still override with the right stick.
+        boolean autoAiming = gamepad1.right_bumper
+                && Math.abs(gamepad1.right_stick_x) <= 0.12;
+
+        if (autoAiming) {
+            // No HOLD while aiming, so small aim corrections are not ignored.
+            mecanum.fieldCentricNoHold(
+                    forward,
+                    strafe,
+                    aimTurn,
+                    Math.toRadians(driverHeadingDegrees)
+            );
+        } else {
+            mecanum.fieldCentric(
+                    forward,
+                    strafe,
+                    turn,
+                    Math.toRadians(driverHeadingDegrees)
+            );
+        }
 
         // START: reset to the starting pose. Only press when the robot is really there.
         mecanum.resetPose(gamepad1.startWasPressed(), startingPose);
 
         // Hold LEFT BUMPER to spin up the flywheel.
         if (gamepad1.left_bumper && robotPose != null) {
-            trajectory = shooterForTrajectory.aimAt(
+            shot = flywheel.aimAt(
                     robotPose.x(),
                     robotPose.y(),
                     goalX,
                     goalY);
         } else {
-            shooterForTrajectory.stop();
-            trajectory = null;
+            flywheel.stop();
+            shot = null;
         }
-        shooterForTrajectory.update();
+        flywheel.update();
 
-        // RIGHT TRIGGER = intake, LEFT TRIGGER = feed/shoot (only when the flywheel is ready).
+        // RIGHT TRIGGER = intake.
+        // LEFT TRIGGER = feed/shoot, only when the flywheel is ready AND the robot faces the goal.
+        // Hold Y with LEFT TRIGGER to skip the aim check (e.g. if odometry is off).
+        boolean aimOk = chassisAim.isAimed() || gamepad1.y;
+
         if (gamepad1.right_trigger_pressed) {
-            mouth.setState(Mouth.State.INTAKING);
-        } else if (gamepad1.left_trigger_pressed && shooterForTrajectory.isReady()) {
-            mouth.setState(Mouth.State.OUTTAKING);
+            intake.setState(Intake.State.INTAKING);
+        } else if (gamepad1.left_trigger_pressed && flywheel.isReady() && aimOk) {
+            intake.setState(Intake.State.OUTTAKING);
         } else {
-            mouth.setState(Mouth.State.IDLE);
+            intake.setState(Intake.State.IDLE);
         }
-        mouth.update();
+        intake.update();
 
         if (robotPose != null) {
             telemetry.addData("Robot X", robotPose.x());
@@ -159,29 +191,32 @@ public abstract class TeleOpMain extends OpMode {
         }
         telemetry.addData("Follower Mode", follower.mode());
         telemetry.addData("Active Goal", activeGoal);
+        telemetry.addData("Target Goal", aimingAtTopGoal ? "TOP" : "BOTTOM");
         telemetry.addData("Goal X", goalX);
         telemetry.addData("Goal Y", goalY);
         telemetry.addData("Driver Heading", driverHeadingDegrees);
-        telemetry.addData("Aim Error (deg)", test2.getHeadingErrorDegrees());
-        telemetry.addData("Shooter State", shooterForTrajectory.getState());
-        telemetry.addData("Target Velocity", shooterForTrajectory.getTargetVelocity());
-        telemetry.addData("Current Velocity", shooterForTrajectory.getCurrentVelocity());
-        telemetry.addData("Velocity Error", shooterForTrajectory.getVelocityError());
-        telemetry.addData("Shooter Ready", shooterForTrajectory.isReady());
-        if (trajectory != null) {
-            telemetry.addData("Shot Distance", trajectory.getDistance());
-            telemetry.addData("Trajectory Valid", trajectory.isValid());
+        telemetry.addData("Auto Aiming", autoAiming);
+        telemetry.addData("Aimed", chassisAim.isAimed());
+        telemetry.addData("Aim Error (deg)", chassisAim.getHeadingErrorDegrees());
+        telemetry.addData("Aim Turn Power", chassisAim.getTurnPower());
+        telemetry.addData("Flywheel State", flywheel.getState());
+        telemetry.addData("Target Velocity", flywheel.getTargetVelocity());
+        telemetry.addData("Current Velocity", flywheel.getCurrentVelocity());
+        telemetry.addData("Velocity Error", flywheel.getVelocityError());
+        telemetry.addData("Flywheel Ready", flywheel.isReady());
+        if (shot != null) {
+            telemetry.addData("Shot Distance", shot.getDistance());
+            telemetry.addData("Shot Valid", shot.isValid());
         }
         telemetry.update();
     }
 
     @Override
     public void stop() {
-        mouth.setState(Mouth.State.IDLE);
-        mouth.update();
+        intake.setState(Intake.State.IDLE);
+        intake.update();
 
-        shooterForTrajectory.stop();
-        turret.stop();
+        flywheel.stop();
         follower.stop();
     }
 }

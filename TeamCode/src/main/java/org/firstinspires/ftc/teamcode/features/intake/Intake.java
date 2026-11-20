@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
-public class Mouth {
+public class Intake {
 
     public enum State {
         IDLE,
@@ -13,23 +13,23 @@ public class Mouth {
         OUTTAKING
     }
 
-    private DcMotor IntakingMotor, BackSpinMotor;
-    private Servo Trigger;
+    private DcMotor intakeMotor, backSpinMotor;
+    private Servo gateServo;
     private State state = State.IDLE;
 
     public void init(HardwareMap hardwareMap) {
 
         
-        IntakingMotor = hardwareMap.get(DcMotor.class, "LM");
-        Trigger = hardwareMap.get(Servo.class, "ML");
-        BackSpinMotor= hardwareMap.get(DcMotor.class, "BSM");
+        intakeMotor = hardwareMap.get(DcMotor.class, "LM");
+        gateServo = hardwareMap.get(Servo.class, "ML");
+        backSpinMotor= hardwareMap.get(DcMotor.class, "BSM");
 
-        IntakingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        BackSpinMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backSpinMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        IntakingMotor.setPower(0);
-        BackSpinMotor.setPower(0);
-        Trigger.setPosition(0.5);
+        intakeMotor.setPower(0);
+        backSpinMotor.setPower(0);
+        gateServo.setPosition(0.5);
 
 
     }
@@ -57,10 +57,10 @@ public class Mouth {
         }
     }
 
-    private void action(double frontPower, double lidPosition, double BackSpinPower) {
-        IntakingMotor.setPower(frontPower);
-        Trigger.setPosition(lidPosition);
-        BackSpinMotor.setPower(BackSpinPower);
+    private void action(double intakePower, double gatePosition, double backSpinPower) {
+        intakeMotor.setPower(intakePower);
+        gateServo.setPosition(gatePosition);
+        backSpinMotor.setPower(backSpinPower);
     }
 
 }
