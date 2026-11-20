@@ -13,25 +13,24 @@ public class Mouth {
         OUTTAKING
     }
 
-    private DcMotor LeftMotor, RightMotor;
-    private Servo MouthLid;
+    private DcMotor IntakingMotor, BackSpinMotor;
+    private Servo Trigger;
     private State state = State.IDLE;
 
-    public void init(HardwareMap hwMap) {
+    public void init(HardwareMap hardwareMap) {
 
         
-        LeftMotor = hwMap.get(DcMotor.class, "LM");
-        RightMotor = hwMap.get(DcMotor.class, "RM");
-        MouthLid = hwMap.get(Servo.class, "ML");
+        IntakingMotor = hardwareMap.get(DcMotor.class, "LM");
+        Trigger = hardwareMap.get(Servo.class, "ML");
+        BackSpinMotor= hardwareMap.get(DcMotor.class, "BSM");
 
-        LeftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        RightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        IntakingMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        BackSpinMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        LeftMotor.setPower(0);
-        RightMotor.setPower(0);
-        MouthLid.setPosition(0.5);
+        IntakingMotor.setPower(0);
+        BackSpinMotor.setPower(0);
+        Trigger.setPosition(0.5);
 
-        RightMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
     }
 
@@ -46,22 +45,22 @@ public class Mouth {
     public void update() {
         switch (state) {
             case INTAKING:
-                action(0.7, 0.3, 0.5);
+                action(0.7, 0.5, 0);
                 break;
             case OUTTAKING:
-                action(1, 1, 0.2);
+                action(1,  0.2, 1);
                 break;
             case IDLE:
             default:
-                action(0, 0, 0.5);
+                action(0,  0.5, 0);
                 break;
         }
     }
 
-    private void action(double frontPower, double backPower, double lidPosition) {
-        LeftMotor.setPower(frontPower);
-        RightMotor.setPower(backPower);
-        MouthLid.setPosition(lidPosition);
+    private void action(double frontPower, double lidPosition, double BackSpinPower) {
+        IntakingMotor.setPower(frontPower);
+        Trigger.setPosition(lidPosition);
+        BackSpinMotor.setPower(BackSpinPower);
     }
 
 }

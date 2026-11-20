@@ -1,212 +1,389 @@
+
 package org.firstinspires.ftc.teamcode.features.shooter;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.math.Pose;
-import com.qualcomm.robotcore.hardware.AnalogInput;
-import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
-import org.firstinspires.ftc.teamcode.constants.Shooter;
-
-
+@Configurable
 public class Targeting {
-    private CRServo leftServo;
-    private CRServo rightServo;
-    private AnalogInput encoder;
 
-    private static boolean angleTrackingInitialized;
-    private static double previousServoAngle;
-    private static double continuousServoAngle;
+    private DcMotorEx TM;
 
-    //pid
+    // 5203 312 RPM encoder resolution at gearbox output
+    public static double OUTPUT_TICKS_PER_REV = 537.7;
+
+    // Additional external motor-to-turret gear ratio.
+    // 1.0 means direct drive.
+    public static double EXTERNAL_TURRET_RATIO = 1.0;
+
+    // Change to REVERSE if positive motor power produces
+    // the wrong physical rotation.
+    public static boolean MOTOR_REVERSED = false;
+
+    // PID gains (controller operates in radians).
+    public static double kP = 0.55;
+    public static double kI = 0.0;
+    public static double kD = 0.06;
+    public static double kF = 0.03;
+
+    public static double MAX_POWER = 0.25;
+
+    public static double DEAD_BAND_DEGREES = 1.5;
+
+    public static double MIN_ANGLE_DEGREES = -150;
+    public static double MAX_ANGLE_DEGREES = 150;
+
+    public static double INTEGRAL_LIMIT = 0.5;
+    public static double MAX_PID_DT_SECONDS = 0.1;
+
+    private double targetAngleRadians = 0;
+
+    private boolean targetWithinLimits = true;
+
+    private double integral = 0;
+
+    private double motorPower = 0;
+
     private final ElapsedTime pidTimer = new ElapsedTime();
-    private double integral;
-    private double previousError;
-
-    private double targetAngleRadians;
-    private double currentAngleRadians;
-    private double servoPower;
-
 
     public void init(HardwareMap hardwareMap) {
-        leftServo = hardwareMap.get(
-                CRServo.class, Shooter.TURRET_LEFT_SERVO_NAME);
-        rightServo = hardwareMap.get(
-                CRServo.class, Shooter.TURRET_RIGHT_SERVO_NAME);
-        encoder = hardwareMap.get(
-                AnalogInput.class, Shooter.TURRET_ENCODER_NAME);
 
-        double servoAngle = readServoAngle();
-        if (!angleTrackingInitialized) {
-            // 새로 시작할 때는 케이블을 풀고 터렛을 정면에 놓아야 한다.
-            // 단회전 엔코더만으로는 이전 전원의 누적 회전수를 복원할 수 없다.
-            previousServoAngle = servoAngle;
-            continuousServoAngle = 0;
-            angleTrackingInitialized = true;
-        } else {
-            // Red/Blue OpMode 전환 중 발생한 작은 변화도 기존 누적각에 이어 붙인다.
-            continuousServoAngle += wrapAngle(servoAngle - previousServoAngle);
-            previousServoAngle = servoAngle;
-        }
-        updateCurrentAngle();
+        TM = hardwareMap.get(DcMotorEx.class, "TM");
 
-        resetPid();
-        setServoPower(0);
+        TM.setDirection(
+                MOTOR_REVERSED
+                        ? DcMotorSimple.Direction.REVERSE
+                        : DcMotorSimple.Direction.FORWARD
+        );
+
+        TM.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        TM.setPower(0);
+
+        // The turret MUST physically be facing forward
+        // when this encoder reset happens.
+        TM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        // We use our own position PID controller.
+        TM.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+        resetPID();
+    }
+
+    public double goalDistance(
+            Pose robotPose,
+            double goalX,
+            double goalY) {
+
+        double deltaX = goalX - robotPose.x();
+        double deltaY = goalY - robotPose.y();
+
+        return Math.hypot(deltaX, deltaY);
     }
 
 
-    public void trackPoint(Pose robotPose, double goalX, double goalY) {
+    public double alpha(
+            Pose robotPose,
+            double goalX,
+            double goalY) {
+
+        double deltaX = goalX - robotPose.x();
+        double deltaY = goalY - robotPose.y();
+
+        return Math.atan2(deltaY, deltaX);
+    }
+
+    public double calculateTurretAngle(
+            Pose robotPose,
+            double goalX,
+            double goalY,
+            double shotOffsetRadians) {
+
+        double fieldAngle = alpha(robotPose, goalX, goalY);
+
+        double robotHeading = robotPose.heading();
+
+        double turretAngle =
+                fieldAngle
+                        - robotHeading
+                        - shotOffsetRadians;
+
+        return wrapAngle(turretAngle);
+    }
+
+
+    public void trackPoint(
+            Pose robotPose,
+            double goalX,
+            double goalY) {
+
         trackPoint(robotPose, goalX, goalY, 0);
     }
 
-    public void trackPoint(Pose robotPose, double goalX, double goalY,
-                           double shotOffsetRadians) {
-        if (robotPose == null) {
+
+    public void trackPoint(
+            Pose robotPose,
+            double goalX,
+            double goalY,
+            double shotOffsetRadians) {
+
+        if (robotPose == null || TM == null) {
             stop();
             return;
         }
 
-        targetAngleRadians = calculateTargetAngle(
-                robotPose, goalX, goalY, shotOffsetRadians);
-        trackAngle(targetAngleRadians);
+        double target = calculateTurretAngle(
+                robotPose,
+                goalX,
+                goalY,
+                shotOffsetRadians
+        );
+
+        trackAngle(target);
     }
+
 
     public void trackAngle(double angleRadians) {
-        targetAngleRadians = Range.clip(
-                wrapAngle(angleRadians),
-                Shooter.TURRET_MIN_ANGLE_RADIANS,
-                Shooter.TURRET_MAX_ANGLE_RADIANS);
-        updateCurrentAngle();
 
-        //if 180+ -> -180 then it turns the opposite
-        double error = targetAngleRadians - currentAngleRadians;
-        double power = calculatePidPower(error);
-
-        if ((currentAngleRadians >= Shooter.TURRET_MAX_ANGLE_RADIANS && power > 0)
-                || (currentAngleRadians <= Shooter.TURRET_MIN_ANGLE_RADIANS && power < 0)) {
-            power = 0;
+        if (TM == null) {
+            return;
         }
-        setServoPower(power);
-    }
 
-    public void resetAngleTracking() {
-        previousServoAngle = readServoAngle();
-        continuousServoAngle = 0;
-        updateCurrentAngle();
-        resetPid();
-    }
+        double requestedDegrees =
+                Math.toDegrees(wrapAngle(angleRadians));
 
-    public void stop() {
-        resetPid();
-        if (leftServo != null && rightServo != null) {
-            setServoPower(0);
-        }
-    }
+        targetWithinLimits =
+                requestedDegrees >= MIN_ANGLE_DEGREES
+                        && requestedDegrees <= MAX_ANGLE_DEGREES;
 
-    
-    
-    private double calculateTargetAngle(Pose robotPose, double goalX, double goalY,
-                                        double shotOffsetRadians) {
-        double robotX = robotPose.x();
-        double robotY = robotPose.y();
-        double robotHeading = robotPose.heading();
-        double fieldAngleToGoal = Math.atan2(goalY - robotY, goalX - robotX);
+        double safeDegrees = Range.clip(
+                requestedDegrees,
+                MIN_ANGLE_DEGREES,
+                MAX_ANGLE_DEGREES
+        );
 
-        
-        
-        return wrapAngle(fieldAngleToGoal - robotHeading - shotOffsetRadians);
-    }
+        targetAngleRadians = Math.toRadians(safeDegrees);
 
-    private void updateCurrentAngle() {
-        double servoAngle = readServoAngle();
-        double angleChange = wrapAngle(servoAngle - previousServoAngle);
-
-        continuousServoAngle += angleChange;
-        previousServoAngle = servoAngle;
-
-        // 기어비: 서보 회전수 / 터렛 회전수
-        currentAngleRadians = continuousServoAngle / Shooter.TURRET_GEAR_RATIO;
+        updatePID();
     }
 
 
-    private double readServoAngle() {
-        double angle = encoder.getVoltage()
-                / encoder.getMaxVoltage() * 2.0 * Math.PI;
 
-        return wrapAngle(angle * Shooter.TURRET_ENCODER_DIRECTION);
-    }
+    private void updatePID() {
 
-    private double calculatePidPower(double error) {
+        double currentAngle = getCurrentAngleRadians();
+
+        double error = targetAngleRadians - currentAngle;
+
         double dt = pidTimer.seconds();
         pidTimer.reset();
 
-        double derivative = 0;
-        if (dt > 0 && dt <= Shooter.TURRET_MAX_PID_DT_SECONDS) {
-            integral = Range.clip(
-                    integral + error * dt,
-                    -Shooter.TURRET_INTEGRAL_LIMIT,
-                    Shooter.TURRET_INTEGRAL_LIMIT);
-            derivative = (error - previousError) / dt;
-        }
-        previousError = error;
+        double deadband = Math.toRadians(DEAD_BAND_DEGREES);
 
-        // 목표 각도 근처에서는 떨림을 막기 위해 서보를 정지한다.
-        if (Math.abs(error) <= Shooter.TURRET_DEADBAND_RADIANS) {
+        if (Math.abs(error) <= deadband) {
+
             integral = 0;
+            motorPower = 0;
+
+            TM.setPower(0);
+
+            return;
+        }
+
+        double candidateIntegral = integral;
+
+        if (dt > 0 && dt <= MAX_PID_DT_SECONDS) {
+
+            candidateIntegral += error * dt;
+
+            candidateIntegral = Range.clip(
+                    candidateIntegral,
+                    -INTEGRAL_LIMIT,
+                    INTEGRAL_LIMIT
+            );
+        }
+
+        double currentVelocityRadians =
+                TM.getVelocity()
+                        / getTicksPerTurretRevolution()
+                        * (2.0 * Math.PI);
+
+        double pTerm = kP * error;
+
+        double iTerm = kI * candidateIntegral;
+
+        double dTerm = -kD * currentVelocityRadians;
+
+        double fTerm = kF * Math.signum(error);
+
+        double output = pTerm + iTerm + dTerm + fTerm;
+
+        double clippedOutput = Range.clip(
+                output,
+                -MAX_POWER,
+                MAX_POWER
+        );
+
+        // Anti-windup.
+        if (Math.abs(output) <= MAX_POWER
+                || Math.signum(error) != Math.signum(output)) {
+
+            integral = candidateIntegral;
+
+        } else {
+
+            output = pTerm + kI * integral + dTerm + fTerm;
+
+            clippedOutput = Range.clip(
+                    output,
+                    -MAX_POWER,
+                    MAX_POWER
+            );
+        }
+
+        // Prevent driving farther beyond the mechanical limits.
+        double currentDegrees = Math.toDegrees(currentAngle);
+
+        if (currentDegrees >= MAX_ANGLE_DEGREES
+                && clippedOutput > 0) {
+
+            clippedOutput = 0;
+
+        } else if (currentDegrees <= MIN_ANGLE_DEGREES
+                && clippedOutput < 0) {
+
+            clippedOutput = 0;
+        }
+
+        motorPower = clippedOutput;
+
+        TM.setPower(motorPower);
+    }
+
+    // ==========================================
+    // ENCODER CONVERSION
+    // ==========================================
+
+    private double getTicksPerTurretRevolution() {
+
+        return OUTPUT_TICKS_PER_REV * EXTERNAL_TURRET_RATIO;
+    }
+
+    public double getCurrentAngleRadians() {
+
+        if (TM == null) {
             return 0;
         }
 
-        double power = Shooter.TURRET_P * error
-                + Shooter.TURRET_I * integral
-                + Shooter.TURRET_D * derivative
-                + Shooter.TURRET_F * Math.signum(error);
-
-        return Range.clip(
-                power,
-                -Shooter.TURRET_MAX_POWER,
-                Shooter.TURRET_MAX_POWER);
-    }
-
-    private void setServoPower(double power) {
-        servoPower = power;
-        leftServo.setPower(power * Shooter.TURRET_LEFT_POWER_DIRECTION);
-        rightServo.setPower(power * Shooter.TURRET_RIGHT_POWER_DIRECTION);
-    }
-
-    private void resetPid() {
-        integral = 0;
-        previousError = 0;
-        pidTimer.reset();
-    }
-
-    private double wrapAngle(double radians) {
-        while (radians > Math.PI) {
-            radians -= 2.0 * Math.PI;
-        }
-        while (radians <= -Math.PI) {
-            radians += 2.0 * Math.PI;
-        }
-        return radians;
-    }
-
-    public double getTargetAngleDegrees() {
-        return Math.toDegrees(targetAngleRadians);
+        return TM.getCurrentPosition()
+                / getTicksPerTurretRevolution()
+                * (2.0 * Math.PI);
     }
 
     public double getCurrentAngleDegrees() {
-        return Math.toDegrees(currentAngleRadians);
+
+        return Math.toDegrees(getCurrentAngleRadians());
+    }
+
+
+    public void resetAngleTracking() {
+
+        if (TM == null) {
+            return;
+        }
+
+        TM.setPower(0);
+
+        TM.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        TM.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+        targetAngleRadians = 0;
+
+        targetWithinLimits = true;
+
+        motorPower = 0;
+
+        resetPID();
+    }
+
+    private void resetPID() {
+
+        integral = 0;
+
+        pidTimer.reset();
+    }
+
+
+    //angle wrapping
+
+    private double wrapAngle(double radians) {
+
+        while (radians > Math.PI) {
+            radians -= 2.0 * Math.PI;
+        }
+
+        while (radians <= -Math.PI) {
+            radians += 2.0 * Math.PI;
+        }
+
+        return radians;
+    }
+
+
+    //telemetry
+
+
+    public double getTargetAngleDegrees() {
+
+        return Math.toDegrees(targetAngleRadians);
     }
 
     public double getAngleErrorDegrees() {
-        return Math.toDegrees(targetAngleRadians - currentAngleRadians);
+
+        return getTargetAngleDegrees() - getCurrentAngleDegrees();
     }
 
-    public double getEncoderVoltage() {
-        return encoder.getVoltage();
+    public double getMotorPower() {
+
+        return motorPower;
     }
 
-    public double getServoPower() {
-        return servoPower;
+    public int getEncoderTicks() {
+
+        return TM == null ? 0 : TM.getCurrentPosition();
+    }
+
+    public double getEncoderVelocity() {
+
+        return TM == null ? 0 : TM.getVelocity();
+    }
+
+    public boolean isTargetWithinLimits() {
+
+        return targetWithinLimits;
+    }
+
+    public boolean isBusy() {
+
+        return Math.abs(getAngleErrorDegrees()) > DEAD_BAND_DEGREES;
+    }
+
+    public void stop() {
+
+        if (TM != null) {
+
+            motorPower = 0;
+
+            TM.setPower(0);
+
+            resetPID();
+        }
     }
 }

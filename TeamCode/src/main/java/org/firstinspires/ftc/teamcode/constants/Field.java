@@ -20,9 +20,16 @@ public class Field {
     public static double BLUE_GOAL_X_BOTTOM = 84;
     public static double BLUE_GOAL_Y_BOTTOM = 60;
 
+    //===============================================\\
 
+    public static double RED_START_X = 0;
+    public static double RED_START_Y = 0;
+    public static double RED_START_HEADING_DEGREES = 90;
 
-   //====================DRIVER HEADING========================//
+    public static double BLUE_START_X = 0;
+    public static double BLUE_START_Y = 0;
+    public static double BLUE_START_HEADING_DEGREES = 90;
+
     public static double BLUE_DRIVER_HEADING_DEGREES = 180;
     public static double RED_DRIVER_HEADING_DEGREES = 0;
 
