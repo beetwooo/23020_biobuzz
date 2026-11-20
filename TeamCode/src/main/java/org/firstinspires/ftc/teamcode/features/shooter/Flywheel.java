@@ -1,5 +1,6 @@
-
 package org.firstinspires.ftc.teamcode.features.shooter;
+
+import static org.firstinspires.ftc.teamcode.constants.ShooterConstants.*;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -9,245 +10,139 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
+/**
+ * Shooter flywheel. Everything is in RPM; settings live in ShooterConstants.
+ *
+ * Use:
+ *   init(hardwareMap)          once
+ *   spinUpForDistance(inches)  or setTargetRpm(rpm) / stop()
+ *   update()                   every loop
+ *   isReady()                  true when up to speed
+ */
 public class Flywheel {
 
-    public enum State {
-        IDLE,
-        SPINNING_UP,
-        READY
-    }
-
-    private DcMotorEx flywheel;
-
-    private State state = State.IDLE;
-
-    private double targetVelocity = 0;
-
-    private boolean inTolerance = false;
-
+    private DcMotorEx motor;
+    private double targetRpm = 0;
     private final ElapsedTime readyTimer = new ElapsedTime();
 
-    // =====================================
-    // INITIALIZATION
-    // =====================================
+    // Last PIDF sent to the hub, so Panels changes are picked up live.
+    private double sentP, sentI, sentD, sentF;
+    private PIDFCoefficients defaultPIDF;
 
     public void init(HardwareMap hardwareMap) {
-
-        flywheel = hardwareMap.get(
-                DcMotorEx.class,
-                org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_NAME
-        );
-
-        flywheel.setDirection(
-                DcMotorSimple.Direction.FORWARD
-        );
-
-        flywheel.setZeroPowerBehavior(
-                DcMotor.ZeroPowerBehavior.FLOAT
-        );
-
-        flywheel.setMode(
-                DcMotor.RunMode.RUN_USING_ENCODER
-        );
-
-        applyPIDF();
-
-        flywheel.setPower(0);
+        motor = hardwareMap.get(DcMotorEx.class, FLYWHEEL_MOTOR);
+        motor.setDirection(FLYWHEEL_REVERSED
+                ? DcMotorSimple.Direction.REVERSE
+                : DcMotorSimple.Direction.FORWARD);
+        motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        // Remember the hub's default PIDF so it can be used until you tune your own.
+        defaultPIDF = motor.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER);
+        sendPIDF();
+        motor.setPower(0);
+        targetRpm = 0;
     }
 
-    // =====================================
-    // PIDF
-    // =====================================
+    // ===== Commands =====
 
-    public void applyPIDF() {
-
-        PIDFCoefficients coefficients =
-                new PIDFCoefficients(
-                        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_P,
-                        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_I,
-                        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_D,
-                        org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_F
-                );
-
-        flywheel.setPIDFCoefficients(
-                DcMotor.RunMode.RUN_USING_ENCODER,
-                coefficients
-        );
+    public void setTargetRpm(double rpm) {
+        targetRpm = Range.clip(rpm, 0, MAX_RPM);
     }
 
-    // =====================================
-    // SET TARGET VELOCITY
-    // =====================================
-
-    public void setTargetVelocity(double velocity) {
-
-        double maxVelocity =
-                org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_MAX_RPM
-                        / 60.0
-                        * org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_TPR;
-
-        double newTarget = Range.clip(
-                velocity,
-                0,
-                maxVelocity
-        );
-
-        if (Math.abs(newTarget - targetVelocity) > 1) {
-
-            inTolerance = false;
-
-            state = newTarget > 0
-                    ? State.SPINNING_UP
-                    : State.IDLE;
-        }
-
-        targetVelocity = newTarget;
+    public void spinUpForDistance(double inches) {
+        setTargetRpm(rpmForDistance(inches));
     }
-
-    // =====================================
-    // AIM USING TRAJECTORY CALCULATOR
-    // =====================================
-
-    public ShotSolution aimAt(
-            double robotX,
-            double robotY,
-            double goalX,
-            double goalY) {
-
-        ShotSolution trajectory =
-                ShotCalculator.calculate(
-                        robotX,
-                        robotY,
-                        goalX,
-                        goalY
-                );
-
-        if (trajectory.isValid()) {
-
-            setTargetVelocity(
-                    trajectory.getTargetVelocity()
-            );
-
-        } else {
-
-            setTargetVelocity(0);
-        }
-
-        return trajectory;
-    }
-
-    // =====================================
-    // MOTOR UPDATE
-    // =====================================
-
-    public void update() {
-
-        if (flywheel == null) {
-            return;
-        }
-
-        if (targetVelocity <= 0) {
-
-            flywheel.setPower(0);
-
-            state = State.IDLE;
-
-            inTolerance = false;
-
-            return;
-        }
-
-        flywheel.setVelocity(targetVelocity);
-
-        double error = Math.abs(
-                targetVelocity - flywheel.getVelocity()
-        );
-
-        boolean withinTolerance =
-                error <= org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_READY_TOLERANCE;
-
-        if (withinTolerance) {
-
-            if (!inTolerance) {
-
-                readyTimer.reset();
-
-                inTolerance = true;
-            }
-
-            if (readyTimer.seconds()
-                    >= org.firstinspires.ftc.teamcode.constants.ShooterConstants.FLYWHEEL_READY_TIME) {
-
-                state = State.READY;
-
-            } else {
-
-                state = State.SPINNING_UP;
-            }
-
-        } else {
-
-            inTolerance = false;
-
-            state = State.SPINNING_UP;
-        }
-    }
-
-    // =====================================
-    // STOP
-    // =====================================
 
     public void stop() {
-
-        targetVelocity = 0;
-
-        state = State.IDLE;
-
-        inTolerance = false;
-
-        if (flywheel != null) {
-            flywheel.setPower(0);
+        targetRpm = 0;
+        if (motor != null) {
+            motor.setPower(0);
         }
     }
 
-    // =====================================
-    // GETTERS
-    // =====================================
+    /** Call every loop. */
+    public void update() {
+        if (motor == null) {
+            return;
+        }
 
-    public State getState() {
-        return state;
+        if (P != sentP || I != sentI || D != sentD || F != sentF) {
+            sendPIDF();
+        }
+
+        if (targetRpm <= 0) {
+            motor.setPower(0);
+        } else {
+            motor.setVelocity(rpmToTicksPerSecond(targetRpm));
+        }
+
+        // Restart the ready timer whenever we are off target.
+        if (targetRpm <= 0 || Math.abs(getErrorRpm()) > READY_TOLERANCE_RPM) {
+            readyTimer.reset();
+        }
     }
+
+    // ===== Distance -> RPM =====
+
+    /** True once NEAR_RPM and FAR_RPM have been filled in. */
+    public static boolean isCalibrated() {
+        return NEAR_RPM > 0 && FAR_RPM > 0 && FAR_DISTANCE > NEAR_DISTANCE;
+    }
+
+    /** Straight-line blend between the two calibration shots. */
+    public static double rpmForDistance(double inches) {
+        if (!isCalibrated()) {
+            return DEFAULT_RPM;
+        }
+        double t = (inches - NEAR_DISTANCE) / (FAR_DISTANCE - NEAR_DISTANCE);
+        t = Range.clip(t, 0, 1);
+        return NEAR_RPM + t * (FAR_RPM - NEAR_RPM);
+    }
+
+    // ===== Status =====
 
     public boolean isReady() {
-        return state == State.READY;
+        return targetRpm > 0 && readyTimer.seconds() >= READY_TIME;
     }
 
-    public double getTargetVelocity() {
-        return targetVelocity;
+    public double getTargetRpm() {
+        return targetRpm;
     }
 
-    public double getCurrentVelocity() {
-
-        return flywheel == null
-                ? 0
-                : flywheel.getVelocity();
+    public double getCurrentRpm() {
+        return motor == null ? 0 : ticksPerSecondToRpm(motor.getVelocity());
     }
 
-    public double getVelocityError() {
-        return targetVelocity - getCurrentVelocity();
+    public double getErrorRpm() {
+        return targetRpm - getCurrentRpm();
     }
 
-    public double getMotorPower() {
-
-        return flywheel == null
-                ? 0
-                : flywheel.getPower();
+    public double getPower() {
+        return motor == null ? 0 : motor.getPower();
     }
 
-    public int getEncoderTicks() {
+    // ===== Helpers =====
 
-        return flywheel == null
-                ? 0
-                : flywheel.getCurrentPosition();
+    private void sendPIDF() {
+        if (P == 0 && I == 0 && D == 0 && F == 0) {
+            // Not tuned yet: put the hub's own default PIDF back.
+            motor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, defaultPIDF);
+        } else {
+            motor.setPIDFCoefficients(
+                    DcMotor.RunMode.RUN_USING_ENCODER,
+                    new PIDFCoefficients(P, I, D, F));
+        }
+        sentP = P;
+        sentI = I;
+        sentD = D;
+        sentF = F;
+    }
+
+    private static double rpmToTicksPerSecond(double rpm) {
+        return rpm / 60.0 * TICKS_PER_REV;
+    }
+
+    private static double ticksPerSecondToRpm(double ticksPerSecond) {
+        return ticksPerSecond / TICKS_PER_REV * 60.0;
     }
 }

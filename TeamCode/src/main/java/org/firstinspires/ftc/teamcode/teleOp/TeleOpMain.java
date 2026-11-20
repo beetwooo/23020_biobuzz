@@ -1,21 +1,29 @@
 
 package org.firstinspires.ftc.teamcode.teleOp;
 
+import com.bylazar.telemetry.PanelsTelemetry;
+import com.bylazar.telemetry.TelemetryManager;
 import com.pedropathing.api.PoseFactory;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.constants.Field;
+import org.firstinspires.ftc.teamcode.constants.ShooterConstants;
 import org.firstinspires.ftc.teamcode.features.Mecanum;
 import org.firstinspires.ftc.teamcode.features.intake.Intake;
 import org.firstinspires.ftc.teamcode.features.shooter.Flywheel;
-import org.firstinspires.ftc.teamcode.features.shooter.ShotSolution;
 import org.firstinspires.ftc.teamcode.features.shooter.ChassisAim;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 public abstract class TeleOpMain extends OpMode {
+
+    // Panels: telemetry goes to Panels AND the Driver Station.
+    // The Panels Graph tab plots any number sent with panels.addData.
+    private final TelemetryManager panels = PanelsTelemetry.INSTANCE.getTelemetry();
 
     private Follower follower;
 
@@ -39,11 +47,19 @@ public abstract class TeleOpMain extends OpMode {
     protected abstract Field.Goal getGoal();
 
     private final Flywheel flywheel = new Flywheel();
+    private boolean flywheelOn = false;
 
-    private ShotSolution shot;
+    private boolean firing = false;
+    private final ElapsedTime fireTimer = new ElapsedTime();
 
     @Override
     public void init() {
+
+        // Bulk reads: read all motor encoders/velocities on each hub in one go.
+        // AUTO refreshes the cache by itself, so nothing else is needed in loop().
+        for (LynxModule hub : hardwareMap.getAll(LynxModule.class)) {
+            hub.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
+        }
 
         activeGoal = getGoal();
 
@@ -125,13 +141,7 @@ public abstract class TeleOpMain extends OpMode {
         // Aim is calculated every loop so we always know whether the robot is aimed.
         // ChassisAim returns a Pedro-convention turn (+ = counter-clockwise),
         // so it is NOT negated like the stick.
-        double aimTurn = chassisAim.calculate(
-                robotPose,
-                follower.velocity().omega,
-                goalX,
-                goalY,
-                0.0
-        );
+        double aimTurn = chassisAim.calculate(follower, goalX, goalY);
 
         // Auto aim (hold RIGHT BUMPER). Driver can still override with the right stick.
         boolean autoAiming = gamepad1.right_bumper
@@ -154,61 +164,79 @@ public abstract class TeleOpMain extends OpMode {
             );
         }
 
-        // START: reset to the starting pose. Only press when the robot is really there.
-        mecanum.resetPose(gamepad1.startWasPressed(), startingPose);
+        // START + X (together): reset to the starting pose. Fires once per press.
+        // Only press when the robot is really at the starting pose.
+        boolean resetPressed = gamepad1.xWasPressed() && gamepad1.start;
+        mecanum.resetPose(resetPressed, startingPose);
 
-        // Hold LEFT BUMPER to spin up the flywheel.
-        if (gamepad1.left_bumper && robotPose != null) {
-            shot = flywheel.aimAt(
-                    robotPose.x(),
-                    robotPose.y(),
-                    goalX,
-                    goalY);
+        // Flywheel toggle: A = on (stays on between shots), B = off.
+        // While on, the speed follows the distance to the goal.
+        if (gamepad1.aWasPressed()) flywheelOn = true;
+        if (gamepad1.bWasPressed()) flywheelOn = false;
+
+        double goalDistance = Math.hypot(goalX - robotPose.x(), goalY - robotPose.y());
+
+        if (flywheelOn) {
+            flywheel.spinUpForDistance(goalDistance);
         } else {
             flywheel.stop();
-            shot = null;
         }
         flywheel.update();
 
         // RIGHT TRIGGER = intake.
-        // LEFT TRIGGER = feed/shoot, only when the flywheel is ready AND the robot faces the goal.
-        // Hold Y with LEFT TRIGGER to skip the aim check (e.g. if odometry is off).
+        // LEFT TRIGGER = feed/shoot. A shot only STARTS when the flywheel is ready AND the
+        // robot faces the goal (hold Y to skip the aim check, e.g. if odometry is off).
+        // Once started, it keeps feeding for FIRE_TIME seconds even though the RPM dips
+        // as the ball goes through (one motor dips a lot). Keep holding to fire the next
+        // ball as soon as the flywheel is ready again. Releasing the trigger stops feeding.
         boolean aimOk = chassisAim.isAimed() || gamepad1.y;
 
+        if (firing && fireTimer.seconds() >= ShooterConstants.FIRE_TIME) {
+            firing = false;   // firing window finished
+        }
+        if (!firing && gamepad1.left_trigger_pressed && flywheel.isReady() && aimOk) {
+            firing = true;    // start a new firing window
+            fireTimer.reset();
+        }
+
         if (gamepad1.right_trigger_pressed) {
+            firing = false;
             intake.setState(Intake.State.INTAKING);
-        } else if (gamepad1.left_trigger_pressed && flywheel.isReady() && aimOk) {
+        } else if (firing && gamepad1.left_trigger_pressed) {
             intake.setState(Intake.State.OUTTAKING);
         } else {
+            firing = false;
             intake.setState(Intake.State.IDLE);
         }
         intake.update();
 
         if (robotPose != null) {
-            telemetry.addData("Robot X", robotPose.x());
-            telemetry.addData("Robot Y", robotPose.y());
-            telemetry.addData("Robot Heading", Math.toDegrees(robotPose.heading()));
+            panels.addData("Robot X", robotPose.x());
+            panels.addData("Robot Y", robotPose.y());
+            panels.addData("Robot Heading", Math.toDegrees(robotPose.heading()));
         }
-        telemetry.addData("Follower Mode", follower.mode());
-        telemetry.addData("Active Goal", activeGoal);
-        telemetry.addData("Target Goal", aimingAtTopGoal ? "TOP" : "BOTTOM");
-        telemetry.addData("Goal X", goalX);
-        telemetry.addData("Goal Y", goalY);
-        telemetry.addData("Driver Heading", driverHeadingDegrees);
-        telemetry.addData("Auto Aiming", autoAiming);
-        telemetry.addData("Aimed", chassisAim.isAimed());
-        telemetry.addData("Aim Error (deg)", chassisAim.getHeadingErrorDegrees());
-        telemetry.addData("Aim Turn Power", chassisAim.getTurnPower());
-        telemetry.addData("Flywheel State", flywheel.getState());
-        telemetry.addData("Target Velocity", flywheel.getTargetVelocity());
-        telemetry.addData("Current Velocity", flywheel.getCurrentVelocity());
-        telemetry.addData("Velocity Error", flywheel.getVelocityError());
-        telemetry.addData("Flywheel Ready", flywheel.isReady());
-        if (shot != null) {
-            telemetry.addData("Shot Distance", shot.getDistance());
-            telemetry.addData("Shot Valid", shot.isValid());
-        }
-        telemetry.update();
+        panels.addData("Follower Mode", follower.mode());
+        panels.addData("Active Goal", activeGoal);
+        panels.addData("Target Goal", aimingAtTopGoal ? "TOP" : "BOTTOM");
+        panels.addData("Goal X", goalX);
+        panels.addData("Goal Y", goalY);
+        panels.addData("Driver Heading", driverHeadingDegrees);
+        panels.addData("Auto Aiming", autoAiming);
+        panels.addData("Aimed", chassisAim.isAimed());
+        panels.addData("Aim Error (deg)", chassisAim.getHeadingErrorDegrees());
+        panels.addData("Aim Turn Power", chassisAim.getTurnPower());
+        panels.addData("Goal Distance (in)", goalDistance);
+        panels.addData("Flywheel On", flywheelOn);
+        panels.addData("Firing", firing);
+        panels.addData("Flywheel Target RPM", flywheel.getTargetRpm());
+        panels.addData("Flywheel Current RPM", flywheel.getCurrentRpm());
+        panels.addData("Flywheel Ready", flywheel.isReady());
+        panels.addData("Shot Speeds Calibrated", Flywheel.isCalibrated());
+        // Graph tab: every number sent with panels.addData can be graphed
+        // (Flywheel Target/Current RPM, Aim Error...). This one shows the firing windows.
+        panels.addData("Firing x1000", firing ? 1000 : 0);
+
+        panels.update(telemetry);
     }
 
     @Override
